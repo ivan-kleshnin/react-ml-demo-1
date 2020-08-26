@@ -2,4 +2,4 @@
 
 Simple KNN classification visualized with React and Victory Charts.
 
-![App Screen](./cover.png)
+![App Screen](./cover2.png)
