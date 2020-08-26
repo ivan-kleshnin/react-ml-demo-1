@@ -49,7 +49,15 @@ export default function App() {
         <VictoryChart
           theme={VictoryTheme.material}
           domain={{x: [0, 12], y: [0, 10]}}
-          containerComponent={makeContainerComponent({ref})}
+          containerComponent={<VictoryCursorContainer
+            cursorLabel={cursorLabel}
+            cursorLabelComponent={<VictoryLabel style={{fontSize: 12, fill: "grey"}}/>}
+            onCursorChange={(data) => {
+              let {x, y} = data ? data : {x: 0, y: 0}
+              ref.current = {experience: roundToDotFive(x), salary: round(y, 1)}
+            }}
+            cursorComponent={<LineSegment style={{stroke: "grey", strokeDasharray: "4 4"}}/>}
+          />}
           events={[{
             target: "parent",
             eventHandlers: {
@@ -92,18 +100,6 @@ function Description() {
       <strong>Stats:</strong> from <a href="https://djinni.co">Djinni.co</a> <small>(Ukraine)</small><br/>
     </p>
   </>
-}
-
-function makeContainerComponent({ref}) {
-  return <VictoryCursorContainer
-    cursorLabel={cursorLabel}
-    cursorLabelComponent={<VictoryLabel style={{fontSize: 12, fill: "grey"}}/>}
-    onCursorChange={(data) => {
-      let {x, y} = data ? data : {x: 0, y: 0}
-      ref.current = {experience: roundToDotFive(x), salary: round(y, 1)}
-    }}
-    cursorComponent={<LineSegment style={{stroke: "grey", strokeDasharray: "4 4"}}/>}
-  />
 }
 
 function makeAxisX() {
