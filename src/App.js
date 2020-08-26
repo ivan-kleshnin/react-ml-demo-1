@@ -88,8 +88,8 @@ function Description() {
     <h3>Developer level derived from Experience and Salary.</h3>
     <p>
       <strong>Algorithm:</strong> KNN <small>(const K = 5)</small><br/>
-      <strong>Stats:</strong> from <a href="https://djinni.co">Djinni.co</a> <small>(Ukraine)</small><br/>
       <strong>Techs:</strong> Rambda, React, Victory (+D3)<br/>
+      <strong>Stats:</strong> from <a href="https://djinni.co">Djinni.co</a> <small>(Ukraine)</small><br/>
     </p>
   </>
 }
