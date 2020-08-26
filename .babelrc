@@ -1,0 +1,8 @@
+{
+  "presets": [
+    "@babel/env",
+  ],
+  "plugins": [
+    "styled-jsx/babel"
+  ]
+}
