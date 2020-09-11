@@ -1,4 +1,4 @@
-import * as R from "rambda"
+import * as R from "rambdax"
 import React, {useCallback, useRef, useState} from "react"
 import {
   Selection,
@@ -7,45 +7,51 @@ import {
   VictoryChart, VictoryAxis, VictoryTheme, VictoryScatter,
   VictoryLabel, VictoryLegend,
 } from "victory"
-import {classifyFact, invert, round, roundToDotFive} from "./lib"
+import {classifyFact, invert, round, splitTestFacts} from "./lib"
 import db from "./db.json"
+
+// ENGLISH
+// basic -> 0
+// pre-intermediate -> 1
+// intermediate -> 2
+// upper intermediate -> 3
+// fluent -> 4
+
+const TEST_FACTS_COUNT = 5
 
 export default function App() {
   let ref = useRef()
 
-  let [juniors, setJuniors] = useState(db.juniors.map(j => R.omit(["english"], j)))
-  let [middles, setMiddles] = useState(db.middles.map(m => R.omit(["english"], m)))
-  let [seniors, setSeniors] = useState(db.seniors.map(s => R.omit(["english"], s)))
+  let [resumes, setResumes] = useState(db.resumes.map(R.omit(["english"]))) // Ignore EN level for now...
+  let [mode, setMode] = useState("junior")
 
-  let [mode, setMode] = useState("juniors")
-
-  let onDrop = useCallback((event) => {
+  let addResume = useCallback(event => {
     if (ref.current) {
       let {experience, salary} = ref.current
-      if (mode == "unknown") {
-        mode = classifyFact(
-          [
-            ...juniors.map(j => ({...j, "@tag": "juniors"})),
-            ...middles.map(j => ({...j, "@tag": "middles"})),
-            ...seniors.map(j => ({...j, "@tag": "seniors"})),
-          ],
-          {experience, salary}
-        )
-      }
-      switch (mode) {
-        case "juniors": setJuniors(R.append({experience, salary})); break
-        case "middles": setMiddles(R.append({experience, salary})); break
-        case "seniors": setSeniors(R.append({experience, salary})); break
-        default: throw new Error(`invalid mode ${mode}`)
+      let level = (mode == "unknown")
+        ? classifyFact(resumes, {experience, salary})
+        : mode
+      switch (level) {
+        case "junior": setResumes(R.append({experience, salary, label: "junior"})); break
+        case "middle": setResumes(R.append({experience, salary, label: "middle"})); break
+        case "senior": setResumes(R.append({experience, salary, label: "senior"})); break
+        default: throw new Error("unsupported")
       }
     }
   }, [mode])
 
+  let findBestK = useCallback(event => {
+    console.log("@ findBestK")
+    // for (let k of R.range(3, 10)) {
+    //   let [testFacts, trainingFacts] = splitTestFacts()
+    // }
+  }, [])
+
   return <div style={{padding: "2rem"}}>
     <h1>KNN Classification Demo</h1>
     <Description/>
-    <div style={{cursor: `url('${modeToFile[mode]}') 4 4, auto`}}>
-      <div style={{width: "600px", backgroundColor: "white"}}>
+    <div style={{display: "grid", gridTemplateColumns: "1fr 1fr"}}>
+      <div style={{backgroundColor: "white", cursor: `url('${modeToFile[mode]}') 4 4, auto`}}>
         <VictoryChart
           theme={VictoryTheme.material}
           domain={{x: [0, 12], y: [0, 10]}}
@@ -54,40 +60,45 @@ export default function App() {
             cursorLabelComponent={<VictoryLabel style={{fontSize: 12, fill: "grey"}}/>}
             onCursorChange={(data) => {
               let {x, y} = data ? data : {x: 0, y: 0}
-              ref.current = {experience: roundToDotFive(x), salary: round(y, 1)}
+              ref.current = {experience: round(x, 1), salary: round(y, 1)}
             }}
             cursorComponent={<LineSegment style={{stroke: "grey", strokeDasharray: "4 4"}}/>}
           />}
           events={[{
             target: "parent",
             eventHandlers: {
-              onClick: onDrop,
+              onClick: addResume,
             }
           }]}
         >
           <Legend/>
 
-          <Scatter dataStyle={styles.juniors} data={juniors}/>
-          <Scatter dataStyle={styles.middles} data={middles}/>
-          <Scatter dataStyle={styles.seniors} data={seniors}/>
+          <Scatter dataStyle={styles.junior} data={resumes.filter(r => r.label == "junior")}/>
+          <Scatter dataStyle={styles.middle} data={resumes.filter(r => r.label == "middle")}/>
+          <Scatter dataStyle={styles.senior} data={resumes.filter(r => r.label == "senior")}/>
 
           {makeAxisX()}
           {makeAxisY()}
         </VictoryChart>
       </div>
-
-      <ColorRadios
-        label="Series"
-        onChange={({value, label}) => setMode(colorsToModes[value])}
-        options={[
-          {value: colors.juniors, label: "Juniors"},
-          {value: colors.middles, label: "Middles"},
-          {value: colors.seniors, label: "Seniors"},
-          {value: colors.unknown, label: "Detect 🕵️️"},
-        ]}
-        selected={colors[mode]}
-      />
+      <div style={{padding: "0 1rem"}}>
+        <Button onClick={findBestK}>
+          Find best K
+        </Button>
+      </div>
     </div>
+
+    <ColorRadios
+      label="Series"
+      onChange={({value, label}) => setMode(colorsToModes[value])}
+      options={[
+        {value: colors.junior,  label: "Juniors"},
+        {value: colors.middle,  label: "Middles"},
+        {value: colors.senior,  label: "Seniors"},
+        {value: colors.unknown, label: "Detect 🕵️️"},
+      ]}
+      selected={colors[mode]}
+    />
   </div>
 }
 
@@ -95,8 +106,8 @@ function Description() {
   return <>
     <h3>Developer level derived from Experience and Salary.</h3>
     <p>
-      <strong>Algorithm:</strong> KNN <small>(const K = 5)</small><br/>
-      <strong>Techs:</strong> Rambda, React, Victory (+D3)<br/>
+      <strong>Algorithm:</strong> KNN <small>(dynamic K)</small><br/>
+      <strong>Techs:</strong> RambdaX, React, Victory (+D3)<br/>
       <strong>Stats:</strong> from <a href="https://djinni.co">Djinni.co</a> <small>(Ukraine)</small><br/>
     </p>
   </>
@@ -128,17 +139,18 @@ function Legend(props) {
     style={{labels: {fontSize: 10}}}
     orientation="horizontal"
     data={[
-      {name: "Juniors", symbol: styles.juniors},
-      {name: "Middles", symbol: styles.middles},
-      {name: "Seniors", symbol: styles.seniors},
+      {name: "Juniors", symbol: styles.junior},
+      {name: "Middles", symbol: styles.middle},
+      {name: "Seniors", symbol: styles.senior},
     ]}
   />
 }
 
 function Scatter({data, dataStyle, ...rest}) {
+  let cleanData = R.map(R.pick(["experience", "salary"]), data)
   return <VictoryScatter
     {...rest}
-    data={data}
+    data={cleanData}
     size={3}
     style={{data: dataStyle}}
     x="experience"
@@ -147,32 +159,33 @@ function Scatter({data, dataStyle, ...rest}) {
 }
 
 let cursorLabel = ({datum}) => {
-  return `(${roundToDotFive(datum.x)}, ${datum.y.toFixed(1)})`
+  return `(${datum.y.toFixed(1)}, ${datum.y.toFixed(1)})`
 }
 
 let colors = {
   unknown: "#aaaaaa",
-  juniors: "#33bb33",
-  middles: "#ddbb33",
-  seniors: "#dd3333",
+  junior: "#33bb33",
+  middle: "#ddbb33",
+  senior: "#dd3333",
 }
 
 let modeToFile = {
   unknown: "grey.png",
-  juniors: "green.png",
-  middles: "orange.png",
-  seniors: "red.png",
+  junior: "green.png",
+  middle: "orange.png",
+  senior: "red.png",
 }
 
 let styles = {
   unknown: {fill: colors.unknown},
-  juniors: {fill: colors.juniors},
-  middles: {fill: colors.middles},
-  seniors: {fill: colors.seniors},
+  junior: {fill: colors.junior},
+  middle: {fill: colors.middle},
+  senior: {fill: colors.senior},
 }
 
 let colorsToModes = invert(colors)
 
+// Components ======================================================================================
 function ColorRadios({label, onChange, options, selected}) {
   return <div style={{marginTop: "1rem"}}>
     <label><b>Series</b></label>
@@ -190,7 +203,12 @@ function ColorRadios({label, onChange, options, selected}) {
 
 function ColorRadio({color, onClick, label, selected}) {
   return <div
-    style={{display: "flex", gap: "0.5rem", margin: "0.5rem", cursor: "pointer"}}
+    style={{
+      cursor: "pointer",
+      display: "flex",
+      gap: "0.5rem",
+      margin: "0.5rem",
+    }}
     onClick={onClick}
   >
     <div style={{width: 20, height: 20}}>
@@ -204,4 +222,19 @@ function ColorRadio({color, onClick, label, selected}) {
     </div>
     <span>{label} {selected && "◂"}</span>
   </div>
+}
+
+function Button({onClick = null, children}) {
+  return <button
+    onClick={onClick}
+    style={{
+      background: "#fff",
+      border: "0px",
+      cursor: "pointer",
+      fontSize: "24px",
+      padding: "0.5rem",
+    }}
+  >
+    {children}
+  </button>
 }

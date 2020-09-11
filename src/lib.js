@@ -1,4 +1,4 @@
-import * as R from "rambda"
+import * as R from "rambdax"
 
 // Dev. Helpers ====================================================================================
 export let logAs = (label) => {
@@ -42,17 +42,6 @@ export let round = (num, prec) => {
 
 export let roundTo = R.flip(round)
 
-export let digitToDotFive = (n) => {
-  if      (n <= 0.33) return 0
-  else if (n <= 0.66) return 0.5
-  else                return 1
-}
-
-export let roundToDotFive = (n) => {
-  let remainder = ((n * 10) % 10) / 10
-  return round(n - remainder + digitToDotFive(remainder), 1)
-}
-
 // M-L =============================================================================================
 // {1200: 2, 1450: 1} -> 1200
 export let scale = (ns) => {
@@ -61,18 +50,9 @@ export let scale = (ns) => {
   return ns.map(n => (n - min) / (max - min))
 }
 
-export let getKMean = (stats) => {
-  return R.pipe(
-    R.toPairs,
-    R.sortBy(R.prop("1")),
-    R.reverse,
-    (ks) => ks[0][0],
-  )(stats)
-}
-
 export let getDistance = (record1, record2) => {
-  let keys1 = R.keys(record1).filter(k => !k.startsWith("@"))
-  let keys2 = R.keys(record1).filter(k => !k.startsWith("@"))
+  let keys1 = R.keys(record1).filter(k => k != "label")
+  let keys2 = R.keys(record2).filter(k => k != "label")
   let uniqKeys = R.uniq([...keys1, ...keys2])
   return R.pipe(
     R.map(k => (record1[k] - record2[k]) ** 2),
@@ -82,21 +62,39 @@ export let getDistance = (record1, record2) => {
 }
 
 export let scaleFacts = (facts) => {
-  if (!facts.length)
+  if (!facts.length) {
     return []
+  }
 
   let scaledValues = R.pipe(
     R.keys,
-    R.filter(k => !k.startsWith("@")),
+    R.filter(k => k != "label"),
     R.reduce((z, k) => ({...z, [k]: R.pluck(k, facts)}), {}),
     R.map(x => R.map(roundTo(2), scale(x)))
   )(facts[0])
 
   return facts.map((fact, i) =>
-    R.map((v, k) => k.startsWith("@") ? v : scaledValues[k][i], fact)
+    R.map((v, k) => {
+      console.log("k:", k)
+      return k == "label" ? v : scaledValues[k][i]
+    }, fact)
   )
 }
 
+export let splitTestFacts = (allFacts, testCount) => {
+  if (testCount > (allFacts.length / 2)) {
+    throw new Error("testFacts must take less than a half of allFacts")
+  }
+
+  let shuffledFacts = R.shuffle(allFacts)
+
+  return [
+    R.take(testCount, shuffledFacts), // testSet
+    R.drop(testCount, shuffledFacts), // trainingSet
+  ]
+}
+
+// KNN algorithm
 export let classifyFact = (givenFacts, newFact, k = 3) => {
   if (!givenFacts.length) {
     throw new Error("givenFacts can't be empty!")
@@ -105,8 +103,6 @@ export let classifyFact = (givenFacts, newFact, k = 3) => {
     throw new Error("givenFacts can't be shorter than K!")
   }
 
-  let featureKey = R.keys(givenFacts[0]).find(k => k.startsWith("@"))
-
   let [scaledNewFact, ...scaledGivenFacts] = scaleFacts([newFact, ...givenFacts])
 
   return R.pipe(
@@ -114,8 +110,11 @@ export let classifyFact = (givenFacts, newFact, k = 3) => {
     R.sortBy(R.prop(DISTANCE)),
     R.map(R.omit([DISTANCE])),
     R.slice(0, k),
-    countBy(R.prop(featureKey)),
-    getKMean,
+    countBy(R.prop("label")),
+    R.toPairs,
+    R.sortBy(R.prop("1")),
+    R.reverse,
+    (ks) => ks[0][0],
   )(scaledGivenFacts)
 }
 
