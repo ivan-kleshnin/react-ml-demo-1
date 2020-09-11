@@ -7,7 +7,7 @@ import {
   VictoryChart, VictoryAxis, VictoryTheme, VictoryScatter,
   VictoryLabel, VictoryLegend,
 } from "victory"
-import {classifyFact, invert, round, splitTestFacts} from "./lib"
+import {classifyByKNN, invert, round, splitTestTraining} from "./lib"
 import db from "./db.json"
 
 // ENGLISH
@@ -17,34 +17,38 @@ import db from "./db.json"
 // upper intermediate -> 3
 // fluent -> 4
 
-const TEST_FACTS_COUNT = 5
+const TEST_COUNT = 10
 
 export default function App() {
   let ref = useRef()
 
   let [resumes, setResumes] = useState(db.resumes.map(R.omit(["english"]))) // Ignore EN level for now...
   let [mode, setMode] = useState("junior")
+  let [klog, setKLog] = useState("...")
 
   let addResume = useCallback(event => {
     if (ref.current) {
       let {experience, salary} = ref.current
-      let level = (mode == "unknown")
-        ? classifyFact(resumes, {experience, salary})
+      let label = (mode == "unknown")
+        ? classifyByKNN(resumes, {experience, salary})
         : mode
-      switch (level) {
-        case "junior": setResumes(R.append({experience, salary, label: "junior"})); break
-        case "middle": setResumes(R.append({experience, salary, label: "middle"})); break
-        case "senior": setResumes(R.append({experience, salary, label: "senior"})); break
-        default: throw new Error("unsupported")
-      }
+      setResumes(R.append({experience, salary, label}))
     }
   }, [mode])
 
   let findBestK = useCallback(event => {
-    console.log("@ findBestK")
-    // for (let k of R.range(3, 10)) {
-    //   let [testFacts, trainingFacts] = splitTestFacts()
-    // }
+    let [testResumes, trainingResumes] = splitTestTraining(resumes, TEST_COUNT)
+
+    let kResults = R.map(k => ({
+      k: k,
+      errors: R.sum(R.map(resume => {
+        return Number(classifyByKNN(trainingResumes, resume, k) != resume.label)
+      }, testResumes))
+    }), [3, 5, 7, 9])
+
+    setKLog(JSON.stringify(kResults, null, 2))
+    // "Best K" is highly unstable @_@
+    // return R.reduce(R.minBy(R.prop("errors")), {k: 0, errors: Infinity}, kResults).k
   }, [])
 
   return <div style={{padding: "2rem"}}>
@@ -85,6 +89,9 @@ export default function App() {
         <Button onClick={findBestK}>
           Find best K
         </Button>
+        <pre style={{background: "white", padding: "1rem 0.5rem"}}><code style={{fontSize: "1rem"}}>
+          {klog}
+        </code></pre>
       </div>
     </div>
 
@@ -159,7 +166,7 @@ function Scatter({data, dataStyle, ...rest}) {
 }
 
 let cursorLabel = ({datum}) => {
-  return `(${datum.y.toFixed(1)}, ${datum.y.toFixed(1)})`
+  return `(${datum.x.toFixed(1)}, ${datum.y.toFixed(1)})`
 }
 
 let colors = {

@@ -74,14 +74,11 @@ export let scaleFacts = (facts) => {
   )(facts[0])
 
   return facts.map((fact, i) =>
-    R.map((v, k) => {
-      console.log("k:", k)
-      return k == "label" ? v : scaledValues[k][i]
-    }, fact)
+    R.map((v, k) => k == "label" ? v : scaledValues[k][i], fact)
   )
 }
 
-export let splitTestFacts = (allFacts, testCount) => {
+export let splitTestTraining = (allFacts, testCount) => {
   if (testCount > (allFacts.length / 2)) {
     throw new Error("testFacts must take less than a half of allFacts")
   }
@@ -95,7 +92,7 @@ export let splitTestFacts = (allFacts, testCount) => {
 }
 
 // KNN algorithm
-export let classifyFact = (givenFacts, newFact, k = 3) => {
+export let classifyByKNN = (givenFacts, newFact, k = 3) => {
   if (!givenFacts.length) {
     throw new Error("givenFacts can't be empty!")
   }
