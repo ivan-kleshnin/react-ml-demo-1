@@ -9,12 +9,6 @@ export let logAs = (label) => {
 }
 
 // Collections =====================================================================================
-export let removeIndex = (xs, i) => {
-  let ys = [...xs]
-  ys.splice(i, 1)
-  return ys
-}
-
 export let countBy = R.curry((get, xs) => {
   return xs.reduce((z, x) => {
     let k = get(x) // "a"
